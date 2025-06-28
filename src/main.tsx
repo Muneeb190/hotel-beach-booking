@@ -11,7 +11,11 @@ if (!PUBLISHABLE_KEY) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+  <ClerkProvider
+  appearance={{
+    variables:{colorPrimary:'#624cf5'}
+  }}
+   publishableKey={PUBLISHABLE_KEY}>
     <App />
   </ClerkProvider>
 );
