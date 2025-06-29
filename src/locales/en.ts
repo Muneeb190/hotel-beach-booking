@@ -275,7 +275,7 @@ export const en = {
   },
   apartmentDescriptions: {
     "1": {
-      name: "Deluxe Sea View Suite",
+      name: "Azure Escapes",
       description: "Luxurious suite with panoramic sea views, modern amenities, and a private balcony."
     },
     "2": {
