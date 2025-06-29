@@ -1,10 +1,9 @@
-
 import { useEffect, useState } from "react";
 import { format, addDays, differenceInDays } from "date-fns";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { CalendarIcon, Users, CreditCard, Check, ChevronRight } from "lucide-react";
+import { CalendarIcon, Users, CreditCard, Check, ChevronRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -24,8 +23,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApartmentProps } from "@/components/ApartmentCard";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-// Sample apartments data
 const apartmentsData: ApartmentProps[] = [
   {
     id: "1",
@@ -63,6 +63,8 @@ const apartmentsData: ApartmentProps[] = [
 ];
 
 export default function BookingPage() {
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
   const [endDate, setEndDate] = useState<Date | undefined>(addDays(new Date(), 7));
   const [adults, setAdults] = useState("2");
@@ -86,11 +88,30 @@ export default function BookingPage() {
     specialRequests: ""
   });
   const [isBookingConfirmed, setIsBookingConfirmed] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   
   useEffect(() => {
     // Scroll to top when component mounts
     window.scrollTo(0, 0);
-  }, []);
+    
+    // Check for payment success/failure
+    const success = searchParams.get('success');
+    const canceled = searchParams.get('canceled');
+    
+    if (success === 'true') {
+      setIsBookingConfirmed(true);
+      toast({
+        title: "Payment Successful!",
+        description: "Your booking has been confirmed.",
+      });
+    } else if (canceled === 'true') {
+      toast({
+        title: "Payment Canceled",
+        description: "Your payment was canceled. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [searchParams, toast]);
   
   // Calculate nights and total price
   const nightsCount = startDate && endDate ? differenceInDays(endDate, startDate) : 0;
@@ -106,48 +127,99 @@ export default function BookingPage() {
   const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-  
-  // Submit booking
-  const handleSubmitBooking = (e: React.FormEvent) => {
-    e.preventDefault();
+
+  // Validate form before payment
+  const validateForm = () => {
+    const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'zipCode', 'country'];
+    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
     
-    // In a real app, this would send the booking data to a server
-    console.log("Booking submitted:", {
-      apartment: selectedApartment,
-      dates: { startDate, endDate },
-      guests: { adults, children },
-      customerInfo: formData
-    });
-    
-    // Show confirmation
-    setIsBookingConfirmed(true);
-    
-    // Reset form after booking is confirmed
-    setTimeout(() => {
-      setCurrentStep(1);
-      setSelectedApartment(null);
-      setStartDate(new Date());
-      setEndDate(addDays(new Date(), 7));
-      setAdults("2");
-      setChildren("0");
-      setFormData({
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        address: "",
-        city: "",
-        zipCode: "",
-        country: "",
-        paymentMethod: "credit-card",
-        cardName: "",
-        cardNumber: "",
-        cardExpiry: "",
-        cardCvc: "",
-        specialRequests: ""
+    if (missingFields.length > 0) {
+      toast({
+        title: "Missing Information",
+        description: `Please fill in: ${missingFields.join(', ')}`,
+        variant: "destructive",
       });
-      setIsBookingConfirmed(false);
-    }, 5000);
+      return false;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+  
+  // Handle Stripe payment
+  const handlePayment = async () => {
+    if (!selectedApartment || !startDate || !endDate) {
+      toast({
+        title: "Missing Information",
+        description: "Please ensure all booking details are complete.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsProcessingPayment(true);
+
+    try {
+      const bookingDetails = {
+        apartmentName: selectedApartment.name,
+        checkIn: format(startDate, "EEE, MMM d, yyyy"),
+        checkOut: format(endDate, "EEE, MMM d, yyyy"),
+        guests: `${adults} ${parseInt(adults) === 1 ? "Adult" : "Adults"}${parseInt(children) > 0 ? `, ${children} ${parseInt(children) === 1 ? "Child" : "Children"}` : ""}`,
+        customerInfo: formData
+      };
+
+      console.log('Sending payment request with:', {
+        amount: (totalPrice + 50 + 30) * 100,
+        customerEmail: formData.email,
+        bookingDetails
+      });
+
+      const { data, error } = await supabase.functions.invoke('create-payment', {
+        body: {
+          amount: (totalPrice + 50 + 30) * 100, // Convert to cents
+          currency: 'usd',
+          customerEmail: formData.email,
+          bookingDetails
+        }
+      });
+
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
+
+      console.log('Payment response:', data);
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast({
+        title: "Payment Error",
+        description: "There was an error processing your payment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
   
   return (
@@ -203,7 +275,7 @@ export default function BookingPage() {
                         : "text-muted-foreground"
                     )}
                   >
-                    {step === 1 ? "Choose Room" : step === 2 ? "Guest Details" : "Confirmation"}
+                    {step === 1 ? "Choose Room" : step === 2 ? "Guest Details" : "Payment & Confirmation"}
                   </span>
                 </div>
               ))}
@@ -659,14 +731,15 @@ export default function BookingPage() {
             </div>
           )}
           
-          {/* Step 3: Confirmation */}
+          {/* Step 3: Payment & Confirmation */}
           {currentStep === 3 && (
             <div className="animate-fade-in [animation-delay:300ms]">
               <div className="max-w-4xl mx-auto">
                 {!isBookingConfirmed ? (
                   <>
-                    <h2 className="text-xl font-semibold mb-6">Review Booking Details</h2>
+                    <h2 className="text-xl font-semibold mb-6">Payment & Confirmation</h2>
                     
+                    {/* Booking Review Section */}
                     <div className="glass-card p-6 mb-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Apartment Details */}
@@ -783,7 +856,7 @@ export default function BookingPage() {
                               <span className="font-medium">$50</span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span>Service fee</span>
+                              <span>Service fee</span>  
                               <span className="font-medium">$30</span>
                             </div>
                             <div className="flex justify-between items-center pt-4 border-t mt-4">
@@ -813,14 +886,26 @@ export default function BookingPage() {
                       <Button 
                         variant="outline"
                         onClick={() => setCurrentStep(2)}
+                        disabled={isProcessingPayment}
                       >
                         Back
                       </Button>
                       <Button 
                         className="btn-primary"
-                        onClick={handleSubmitBooking}
+                        onClick={handlePayment}
+                        disabled={isProcessingPayment}
                       >
-                        Confirm Booking <Check className="ml-2 h-4 w-4" />
+                        {isProcessingPayment ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="mr-2 h-4 w-4" />
+                            Pay ${totalPrice + 50 + 30}
+                          </>
+                        )}
                       </Button>
                     </div>
                   </>
@@ -831,7 +916,7 @@ export default function BookingPage() {
                     </div>
                     <h2 className="text-2xl font-bold mb-2">Booking Confirmed!</h2>
                     <p className="text-muted-foreground mb-6">
-                      Your reservation has been successfully confirmed. A confirmation email has been sent to {formData.email}.
+                      Your reservation has been successfully confirmed and payment processed. A confirmation email has been sent to {formData.email}.
                     </p>
                     <p className="font-medium mb-8">
                       Booking Reference: <span className="text-primary">MRS-{Math.floor(Math.random() * 10000).toString().padStart(4, '0')}</span>
