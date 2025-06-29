@@ -1,6 +1,10 @@
 
+// @ts-ignore: Ignore type checking for Deno standard library import
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@14.21.0";
+// @ts-ignore: Ignore type checking for Deno standard library import
+import Stripe from "https://deno.land/x/stripe@v0.24.0/mod.ts";
+// @ts-ignore: Deno is a global in Deno runtime, but TypeScript may not recognize it without this
+declare const Deno: any;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
