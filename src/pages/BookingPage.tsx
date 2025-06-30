@@ -881,6 +881,7 @@ export default function BookingPage() {
                           I agree to the <a href="#" className="text-primary underline">Terms and Conditions</a> and <a href="#" className="text-primary underline">Privacy Policy</a>. I understand that my booking is subject to the property's cancellation policy.
                         </label>
                       </div>
+                      <li className="text-sm mt-4 text-muted-foreground"><b>Copy <u>4242 4242 4242 4242</u> in card number and enter rest randomly (for payement confirmation).</b></li>
                     </div>
                     
                     <div className="flex justify-between">
