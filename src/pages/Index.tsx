@@ -265,7 +265,7 @@ export default function Index() {
               <p className="text-muted-foreground mb-8">
                 {t.home.cta.description}
               </p>
-              <ProtectedBooking size="lg" className="btn-primary">
+              <ProtectedBooking size="lg" className="min-w-[200px] rounded-full transform transition-all duration-300 hover:translate-y-[-2px] bg-sea text-white hover:bg-sea-dark dark:bg-sea-dark dark:hover:bg-sea shadow-lg hover:shadow-xl hover:scale-[1.02]">
                 {t.home.cta.bookNow}
               </ProtectedBooking>
             </div>
