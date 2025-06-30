@@ -578,7 +578,7 @@ export default function BookingPage() {
                         </div>
                         
                         <div className="space-y-2">
-                          <Label htmlFor="specialRequests">Special Requests</Label>
+                          <Label htmlFor="specialRequests">Special Requests (Optional)</Label>
                           <textarea 
                             id="specialRequests" 
                             name="specialRequests" 
@@ -605,6 +605,7 @@ export default function BookingPage() {
                                 name="cardName" 
                                 value={formData.cardName} 
                                 onChange={handleInputChange} 
+                                placeholder="Not necessary"
                               />
                             </div>
                             <div className="space-y-2">
@@ -614,7 +615,7 @@ export default function BookingPage() {
                                 name="cardNumber" 
                                 value={formData.cardNumber} 
                                 onChange={handleInputChange}
-                                placeholder="0000 0000 0000 0000" 
+                                placeholder="Not necessary" 
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -625,7 +626,7 @@ export default function BookingPage() {
                                   name="cardExpiry" 
                                   value={formData.cardExpiry} 
                                   onChange={handleInputChange}
-                                  placeholder="MM/YY" 
+                                  placeholder="Not necessary" 
                                 />
                               </div>
                               <div className="space-y-2">
@@ -635,7 +636,7 @@ export default function BookingPage() {
                                   name="cardCvc" 
                                   value={formData.cardCvc} 
                                   onChange={handleInputChange}
-                                  placeholder="123" 
+                                  placeholder="Not necessary" 
                                 />
                               </div>
                             </div>
